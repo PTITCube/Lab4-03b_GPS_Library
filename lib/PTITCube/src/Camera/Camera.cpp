@@ -41,32 +41,40 @@ bool PTIT_Camera::init(uint8_t gpsSelectPin, uint8_t camSelectPin) {
     if (gpsSelectPin != 255 && camSelectPin != 255) {
         pinMode(this->gpsSelectPin, OUTPUT);
         pinMode(this->camSelectPin, OUTPUT);
+        
+        // Nguyên tắc Break-Before-Make: Tắt cả hai kênh trước
+        digitalWrite(this->camSelectPin, LOW);
         digitalWrite(this->gpsSelectPin, LOW);
-        digitalWrite(this->camSelectPin, HIGH); // Mặc định mở kênh Camera
+        delayMicroseconds(50);
+        
+        // Mặc định an toàn: Trả quyền ưu tiên bus UART2 cho GPS
+        digitalWrite(this->gpsSelectPin, HIGH);
     }
 
-    // ESP32-CAM giờ dùng UART2 (GPIO 14 TX / GPIO 15 RX)
-    // ESP32 chính giao tiếp qua UART2 (GPIO 16 RX / GPIO 17 TX)
-    Serial.println("[Camera] Khoi tao giao tiep voi ESP32-CAM (CAM_UART2 <-> OBC_UART2)...");
-    Serial2.begin(CAM_BAUD, SERIAL_8N1, 16, 17);
+    // Mặc định khởi động cổng UART2 ở baudrate GPS (9600)
+    Serial2.begin(GPS_BAUD, SERIAL_8N1, 16, 17);
 
     return initializeSd();
 }
 
 void PTIT_Camera::selectGPS() {
     if (gpsSelectPin != 255 && camSelectPin != 255) {
-        digitalWrite(gpsSelectPin, HIGH);
+        // Break-Before-Make: TẮT Camera trước
         digitalWrite(camSelectPin, LOW);
-        // Trả lại cấu hình UART2 cho GPS (baudrate 9600)
+        delayMicroseconds(50);
+        // BẬT GPS sau (chống chập 2 chân TX trên 74HC4066)
+        digitalWrite(gpsSelectPin, HIGH);
         Serial2.begin(GPS_BAUD, SERIAL_8N1, 16, 17);
     }
 }
 
 void PTIT_Camera::selectCamera() {
     if (gpsSelectPin != 255 && camSelectPin != 255) {
+        // Break-Before-Make: TẮT GPS trước
         digitalWrite(gpsSelectPin, LOW);
+        delayMicroseconds(50);
+        // BẬT Camera sau
         digitalWrite(camSelectPin, HIGH);
-        // Đặt lại cấu hình UART2 cho Camera (baudrate 115200)
         Serial2.begin(CAM_BAUD, SERIAL_8N1, 16, 17);
     }
 }
@@ -85,10 +93,10 @@ bool PTIT_Camera::captureToFile(const char* path) {
         return false;
     }
 
-    // Đảm bảo kênh MUX đang trỏ vào Camera
+    // Đảm bảo kênh MUX đang trỏ vào Camera và cổng Serial2 chuyển sang 115200
     selectCamera();
 
-    // Dọn dẹp bộ nhớ đệm
+    // Dọn dẹp bộ nhớ đệm UART2
     while(Serial2.available()) Serial2.read();
 
     // 1. Gửi lệnh CAPTURE đến ESP32-CAM qua UART2
@@ -113,6 +121,7 @@ bool PTIT_Camera::captureToFile(const char* path) {
             }
             if (response.startsWith("ERROR:")) {
                 Serial.println("[Camera] ESP32-CAM: " + response);
+                selectGPS(); // Trả lại kênh cho GPS khi có lỗi
                 return false;
             }
         }
@@ -121,6 +130,7 @@ bool PTIT_Camera::captureToFile(const char* path) {
 
     if (!sizeReceived || imageSize <= 0) {
         Serial.println("[Camera] Loi: Khong nhan duoc phan hoi kich thuoc tu ESP32-CAM.");
+        selectGPS(); // Trả lại kênh cho GPS khi timeout
         return false;
     }
 
@@ -134,6 +144,7 @@ bool PTIT_Camera::captureToFile(const char* path) {
         if (!SD.exists(dirPath.c_str())) {
             if (!SD.mkdir(dirPath.c_str())) {
                 Serial.println("[Camera] Loi: Khong the tao thu muc " + dirPath);
+                selectGPS();
                 return false;
             }
         }
@@ -143,6 +154,7 @@ bool PTIT_Camera::captureToFile(const char* path) {
     File file = SD.open(path, FILE_WRITE);
     if (!file) {
         Serial.println("[Camera] Loi: Khong the tao file " + String(path));
+        selectGPS();
         return false;
     }
 
@@ -172,13 +184,19 @@ bool PTIT_Camera::captureToFile(const char* path) {
 
     file.close();
 
-    // 7. Hoàn tất
+    // 7. Hoàn tất và TRẢ LẠI KÊNH CHO GPS
+    bool success = false;
     if (receivedBytes == imageSize) {
         Serial.println("[Camera] Luu anh thanh cong: " + String(path));
         Serial2.println("DONE"); // Báo ESP32-CAM kết thúc
-        return true;
+        success = true;
     } else {
         Serial.printf("[Camera] Loi: Chi nhan duoc %ld/%ld bytes. Timeout!\n", receivedBytes, imageSize);
-        return false;
+        success = false;
     }
+
+    // Luôn luôn trả lại đường truyền UART2 cho GPS sau khi chụp xong
+    selectGPS();
+
+    return success;
 }

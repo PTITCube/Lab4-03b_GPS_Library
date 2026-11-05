@@ -7,29 +7,42 @@ void PTIT_GPS::init(uint8_t gpsSelectPin, uint8_t camSelectPin) {
     this->gpsSelectPin = gpsSelectPin;
     this->camSelectPin = camSelectPin;
 
-    pinMode(this->gpsSelectPin, OUTPUT);
-    pinMode(this->camSelectPin, OUTPUT);
+    if (this->gpsSelectPin != 255 && this->camSelectPin != 255) {
+        pinMode(this->gpsSelectPin, OUTPUT);
+        pinMode(this->camSelectPin, OUTPUT);
 
-    // Mặc định chọn kênh GPS trên MUX
-    digitalWrite(this->gpsSelectPin, HIGH);
-    digitalWrite(this->camSelectPin, LOW);
+        // Break-Before-Make: Tắt CAM trước, ngắt hoàn toàn tiếp điểm 74HC4066
+        digitalWrite(this->camSelectPin, LOW);
+        delayMicroseconds(50);
+        digitalWrite(this->gpsSelectPin, HIGH);
+    }
 
     Serial.println("[GPS] Initializing GPS NEO (UART2, RX=16, TX=17)...");
     gpsSerial.begin(9600, SERIAL_8N1, 16, 17);
 }
 
 void PTIT_GPS::selectGPS() {
-    digitalWrite(gpsSelectPin, HIGH);
-    digitalWrite(camSelectPin, LOW);
-    // Đặt lại baudrate GPS (9600)
-    gpsSerial.begin(9600, SERIAL_8N1, 16, 17);
+    if (gpsSelectPin != 255 && camSelectPin != 255) {
+        // Break-Before-Make: TẮT CAM trước
+        digitalWrite(camSelectPin, LOW);
+        delayMicroseconds(50);
+        // BẬT GPS sau
+        digitalWrite(gpsSelectPin, HIGH);
+        // Đặt lại baudrate GPS (9600)
+        gpsSerial.begin(9600, SERIAL_8N1, 16, 17);
+    }
 }
 
 void PTIT_GPS::selectCamera() {
-    digitalWrite(gpsSelectPin, LOW);
-    digitalWrite(camSelectPin, HIGH);
-    // Đặt lại baudrate Camera (115200)
-    gpsSerial.begin(115200, SERIAL_8N1, 16, 17);
+    if (gpsSelectPin != 255 && camSelectPin != 255) {
+        // Break-Before-Make: TẮT GPS trước
+        digitalWrite(gpsSelectPin, LOW);
+        delayMicroseconds(50);
+        // BẬT CAM sau
+        digitalWrite(camSelectPin, HIGH);
+        // Đặt lại baudrate Camera (115200)
+        gpsSerial.begin(115200, SERIAL_8N1, 16, 17);
+    }
 }
 
 void PTIT_GPS::update() {
