@@ -95,8 +95,7 @@ void setup() {
 
         cdh.println("  PTITCUBE - LAB 4-03b: BẢN TIN NMEA THÔ & CHECKSUM ");
         cdh.println("[INFO] Khởi tạo bộ thu bản tin NMEA thô qua UART2...");
-    cdh.println("[INFO] Hệ thống sẽ thu nhận trọn vẹn từng câu tin thô và kiểm tra mã Checksum XOR.");
-    cdh.println("==================================================\n");
+    cdh.println("[INFO] Thu nhan va kiem tra Checksum NMEA...");
 
     Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);
 }
