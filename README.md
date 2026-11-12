@@ -1,23 +1,61 @@
-# Lab4-03b_GPS_Library
+# Lab 4-03b: Giải Mã Bản Tin GPS Bằng Thư Viện NMEA (GPS Library)
 
-**Thu nhận & Phân loại Bản tin NMEA Thô với Kiểm tra Checksum**
+> **Phân hệ:** Sensor & Scientific Payload  
+> **Thư viện yêu cầu:** `PTITCube Library v1.1.0`  
+> **Nền tảng:** PlatformIO / ESP32-WROOM-32 (OBC)
 
-Bài thực hành thuộc Phân hệ Cảm biến & Định vị (Lab 4) trong hệ thống PTITCube.
+---
 
-## 1. Mục tiêu
-- Thu nhận các chuỗi bản tin NMEA thô từ module GPS Quectel L76X bằng kỹ thuật bộ đệm dòng (Line Buffering).
-- Nhận diện và phân loại các loại câu tin NMEA thô phổ biến:
-  - `$GNRMC` / `$GPRMC`: Recommended Minimum Specific GNSS Data.
-  - `$GNGGA` / `$GPGGA`: Global Positioning System Fix Data.
-  - `$GNVTG` / `$GPVTG`: Track Made Good and Ground Speed.
-  - `$GNGSA` / `$GPGSA`: GNSS DOP and Active Satellites.
-  - `$GNGSV` / `$GPGSV`: GNSS Satellites in View.
-- Cài đặt thuật toán kiểm tra tính toàn vẹn **Checksum XOR** (`*hh`) của chuẩn NMEA 0183 để phát hiện lỗi đường truyền UART.
-- Đầu ra hiển thị dữ liệu NMEA thô có cấu trúc và thống kê tỉ lệ bản tin hợp lệ.
+## 📖 1. Mục Tiêu & Mô Tả Bài Thực Hành
 
-## 2. Phần cứng sử dụng
-- **ESP32 NodeMCU OBC**
-- **Module định vị GNSS:** Quectel L76X.
-- **IC chuyển mạch:** 74HC4066 (chân chọn GPS: GPIO 12, chân chọn Camera: GPIO 14).
-- **Cổng giao tiếp:** UART2 (RX2 = GPIO 16, TX2 = GPIO 17, Baudrate: `9600`).
-- **Serial Monitor:** USB UART (Baudrate: `115200`).
+Sử dụng thư viện phân tích cú pháp NMEA (như TinyGPSPlus) để trích xuất tọa độ kinh độ, vĩ độ, độ cao, vận tốc và số lượng vệ tinh khóa.
+
+---
+
+## 🔌 2. Sơ Đồ Chân Phần Cứng (Hardware Pinout)
+
+| Tín hiệu | Chân ESP32 | Mô tả |
+| :--- | :--- | :--- |
+| UART2 RX/TX | GPIO 16 / GPIO 17 | Kết nối module GNSS L76X @ 9600 baud |
+
+---
+
+## 🛠️ 3. Cấu Hình Phần Mềm & Thư Viện
+
+- **Thư viện cốt lõi:** Thư mục `lib/PTITCube` tích hợp sẵn bộ thư viện phiên bản mới nhất `v1.1.0` với các phân hệ phân lớp:
+  - `CDH`: Quản lý luồng xuất nhập dữ liệu `cdh` (Stream inheritance) và hệ thống tệp FAT32 trên thẻ nhớ MicroSD.
+  - `EPS`: Quản lý năng lượng, đọc IC MAX17048 qua I2C.
+  - `Sensor`: Đọc cụm cảm biến môi trường BMP280, cảm biến quán tính 6-DoF MPU6500, từ kế QMC5883L và định vị GNSS L76X.
+  - `COM`: Quản lý module vô tuyến LoRa Ebyte E32 qua giao tiếp UART2.
+- **Kênh giám sát Console:**
+  - **Công cụ:** `cdh (PTIT_CDH stream - 115200 baud)`
+  - **Tốc độ Baud:** `115200 bps`
+  - **Lưu ý chuẩn hóa:** Kể từ Lab 3, mọi luồng in debug console được chuẩn hóa qua đối tượng `cdh` (`PTIT_CDH cdh;`) kế thừa trực tiếp từ lớp `Stream`/`Print` của Arduino, thay thế hoàn toàn cho `Serial` thông thường.
+
+---
+
+## 🚀 4. Hướng Dẫn Biên Dịch & Nạp Firmware
+
+Sử dụng **PlatformIO CLI** hoặc giao diện **VSCode / PlatformIO IDE**:
+
+```bash
+# 1. Di chuyển vào thư mục dự án
+cd Lab4-03b_GPS_Library
+
+# 2. Biên dịch mã nguồn
+pio run
+
+# 3. Nạp firmware vào vi điều khiển vệ tinh
+pio run -t upload
+
+# 4. Mở cửa sổ giám sát Serial Monitor
+pio device monitor -b 115200
+```
+
+---
+
+## 📝 5. Lưu Ý Kỹ Thuật
+
+- Dữ liệu tọa độ chuẩn WGS-84 được định dạng số thập phân phục vụ vẽ bản đồ.
+- Không chèn các lệnh in `println()` trang trí dư thừa làm nghẽn bộ đệm UART khi vệ tinh vận hành ở tần số cao.
+- Kiểm tra kết nối cáp USB-UART và nguồn pin trước khi thực hiện nạp code.
