@@ -76,7 +76,7 @@ void processNMEASentence(const char* sentence) {
     }
 
     // In câu tin NMEA THÔ kèm nhãn phân loại và trạng thái kiểm tra Checksum
-    cdh.printf("[NMEA RAW] [%-4s] [%s] %s\n",
+    cdh.printf("NMEA RAW: %-4s (%s) %s\n",
                   isCheckOk ? "OK" : "FAIL",
                   getNMEAType(sentence),
                   sentence);
@@ -94,8 +94,8 @@ void setup() {
     digitalWrite(MUX_GPS_PIN, HIGH);
 
         cdh.println("  PTITCUBE - LAB 4-03b: BẢN TIN NMEA THÔ & CHECKSUM ");
-        cdh.println("[INFO] Khởi tạo bộ thu bản tin NMEA thô qua UART2...");
-    cdh.println("[INFO] Thu nhan va kiem tra Checksum NMEA...");
+        cdh.println("INFO: Khởi tạo bộ thu bản tin NMEA thô qua UART2...");
+    cdh.println("INFO: Thu nhan va kiem tra Checksum NMEA...");
 
     Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);
 }
