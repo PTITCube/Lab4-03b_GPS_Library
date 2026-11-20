@@ -5,10 +5,15 @@
 #include <PTITCube.h>
 
 PTIT_CDH cdh;
+PTIT_EPS eps;
 PTIT_GPS gps;
 
 void setup() {
     cdh.begin(115200);
+
+    // Kích hoạt hạ áp cấp nguồn GPS và ngoại vi qua thư viện EPS
+    eps.setBuckState(true);
+
     gps.init(12, 14); // Khởi tạo GPS UART2 và chốt kênh MUX 74HC4066
 }
 
