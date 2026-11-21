@@ -14,7 +14,7 @@ void setup() {
     // Kích hoạt hạ áp cấp nguồn GPS và ngoại vi qua thư viện EPS
     eps.setBuckState(true);
 
-    gps.init(12, 14); // Khởi tạo GPS UART2 và chốt kênh MUX 74HC4066
+    gps.init();
 }
 
 void loop() {
