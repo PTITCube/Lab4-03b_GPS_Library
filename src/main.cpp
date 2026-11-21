@@ -9,7 +9,7 @@ PTIT_EPS eps;
 PTIT_GPS gps;
 
 void setup() {
-    cdh.begin(115200);
+    cdh.begin();
 
     // Kích hoạt hạ áp cấp nguồn GPS và ngoại vi qua thư viện EPS
     eps.setBuckState(true);
