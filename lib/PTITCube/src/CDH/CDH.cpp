@@ -112,29 +112,6 @@ String PTIT_CDH::extractCommand(const String& cmd) {
 }
 
 // ==========================================
-// Watchdog Timer (WDT) Implementation
-// ==========================================
-bool PTIT_CDH::wdtInit(uint32_t timeoutSec, bool panic) {
-    return (esp_task_wdt_init(timeoutSec, panic) == ESP_OK);
-}
-
-void PTIT_CDH::wdtAdd() {
-    esp_task_wdt_add(NULL);
-}
-
-void PTIT_CDH::wdtFeed() {
-    esp_task_wdt_reset();
-}
-
-void PTIT_CDH::wdtReset() {
-    esp_task_wdt_reset();
-}
-
-bool PTIT_CDH::wasWatchdogReset() {
-    return (esp_reset_reason() == ESP_RST_TASK_WDT);
-}
-
-// ==========================================
 // FreeRTOS Task & Delay Implementation
 // ==========================================
 bool PTIT_CDH::createTask(TaskFunction_t taskFn, const char* name, uint32_t stackSize, 

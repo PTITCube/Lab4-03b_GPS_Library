@@ -1,25 +1,20 @@
-#ifndef CAMERA_H
-#define CAMERA_H
+#ifndef MUX_CAMERA_H
+#define MUX_CAMERA_H
 
 #include <Arduino.h>
 
 /**
- * @brief Lớp điều khiển module ESP32-CAM từ ESP32 chính (OBC).
+ * @brief Lớp điều khiển module ESP32-CAM từ ESP32 chính (OBC) qua MUX.
  * 
  * ESP32-CAM giao tiếp qua UART2 (GPIO 14 TX / GPIO 15 RX).
  * ESP32 chính kết nối với ESP32-CAM qua UART2 (GPIO 16 RX / GPIO 17 TX),
- * chia sẻ đường UART2 với GPS qua Multiplexer (MUX).
- * 
- * Khi MUX chọn Camera: OBC UART2 <-> CAM UART2
- * Khi MUX chọn GPS:    OBC UART2 <-> GPS UART
+ * chia sẻ đường UART2 với GPS qua Multiplexer 74HC4066.
  */
 class PTIT_Camera {
 public:
     PTIT_Camera();
     
-    // Khởi tạo camera. 
-    // Mặc định sử dụng chân điều khiển Multiplexer 74HC4066 trên vệ tinh (GPS pin 12, CAM pin 14).
-    // Truyền 255 nếu nối trực tiếp không qua MUX.
+    // Khởi tạo camera và MUX
     bool init(uint8_t gpsSelectPin = 12, uint8_t camSelectPin = 14);
     
     // Gửi tín hiệu điều khiển MUX để kết nối UART2 với mạch Camera
@@ -44,4 +39,4 @@ private:
     bool initializeSd();
 };
 
-#endif
+#endif // MUX_CAMERA_H

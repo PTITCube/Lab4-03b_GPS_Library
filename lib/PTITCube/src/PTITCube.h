@@ -47,10 +47,7 @@
 #include "CDH/CDH.h"
 #include "COM/COM.h"
 #include "Sensor/Sensor.h"
-#include "GPS/GPS.h"
-#include "Camera/Camera.h"
-#include "Storage/Storage.h"
-#include "Scheduler/Scheduler.h"
+#include "MUX/MUX.h"
 
 class PTIT_Utils {
 public:

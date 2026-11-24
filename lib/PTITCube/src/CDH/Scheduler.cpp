@@ -1,19 +1,20 @@
 #include "Scheduler.h"
-#include <esp_task_wdt.h>
 
 // ============================================================================
 // STATIC MEMBERS
 // ============================================================================
+PTIT_Scheduler::TaskInfo PTIT_Scheduler::_tasks[PTIT_MAX_TASKS];
+uint8_t PTIT_Scheduler::_taskCount = 0;
+bool PTIT_Scheduler::_wdtEnabled = false;
+uint32_t PTIT_Scheduler::_wdtTimeout = 30;
 bool PTIT_Scheduler::_wdtActive = false;
-
-// Mutex cho từng bus (khởi tạo trong start())
-static SemaphoreHandle_t _busMutex[PTIT_NUM_BUSES] = { NULL };
+SemaphoreHandle_t PTIT_Scheduler::_busMutex[PTIT_NUM_BUSES] = { NULL };
 
 // ============================================================================
 // API: Đăng ký task
 // ============================================================================
 void PTIT_Scheduler::addTask(const char* name, TaskFunction fn, uint32_t intervalMs,
-                              uint8_t core, uint8_t priority, uint16_t stackSize) {
+                             uint8_t core, uint8_t priority, uint16_t stackSize) {
     if (_taskCount >= PTIT_MAX_TASKS) {
         Serial.println("Scheduler: LỖI: Đã đạt giới hạn " + String(PTIT_MAX_TASKS) + " task!");
         return;
@@ -47,21 +48,17 @@ void PTIT_Scheduler::enableWatchdog(uint32_t timeoutSeconds) {
 void PTIT_Scheduler::taskWrapper(void* pvParameters) {
     TaskInfo* info = (TaskInfo*)pvParameters;
 
-    // Đăng ký task vào watchdog nếu được bật
     if (_wdtActive) {
-        esp_task_wdt_add(NULL);
+        PTIT_WDT::add();
     }
 
     for (;;) {
-        // Feed watchdog
         if (_wdtActive) {
-            esp_task_wdt_reset();
+            PTIT_WDT::feed();
         }
 
-        // Gọi hàm nghiệp vụ của người dùng
         info->fn();
 
-        // Nghỉ theo chu kỳ đã đăng ký
         vTaskDelay(pdMS_TO_TICKS(info->intervalMs));
     }
 }
@@ -70,28 +67,27 @@ void PTIT_Scheduler::taskWrapper(void* pvParameters) {
 // API: Tạo và chạy tất cả task
 // ============================================================================
 void PTIT_Scheduler::start() {
-    // Tạo mutex cho các bus
     for (int i = 0; i < PTIT_NUM_BUSES; i++) {
-        _busMutex[i] = xSemaphoreCreateMutex();
+        if (_busMutex[i] == NULL) {
+            _busMutex[i] = xSemaphoreCreateMutex();
+        }
     }
 
-    // Bật watchdog nếu được yêu cầu
     if (_wdtEnabled) {
-        esp_task_wdt_init(_wdtTimeout, true); // true = reset ESP32 khi timeout
+        PTIT_WDT::init(_wdtTimeout, true);
         _wdtActive = true;
     }
 
-    // Tạo từng task đã đăng ký
     for (uint8_t i = 0; i < _taskCount; i++) {
         TaskHandle_t handle = NULL;
         xTaskCreatePinnedToCore(
-            taskWrapper,             // Hàm wrapper
-            _tasks[i].name,          // Tên task
-            _tasks[i].stackSize,     // Stack size
-            &_tasks[i],              // pvParameters = con trỏ tới TaskInfo
-            _tasks[i].priority,      // Priority
-            &handle,                 // Task handle
-            _tasks[i].core           // Core
+            taskWrapper,
+            _tasks[i].name,
+            _tasks[i].stackSize,
+            &_tasks[i],
+            _tasks[i].priority,
+            &handle,
+            _tasks[i].core
         );
     }
 }
@@ -100,20 +96,18 @@ void PTIT_Scheduler::start() {
 // TIỆN ÍCH: Thread-safe Serial print
 // ============================================================================
 void PTIT_Scheduler::print(const String& msg) {
-    if (_busMutex[PTIT_BUS_SERIAL] != NULL &&
-        xSemaphoreTake(_busMutex[PTIT_BUS_SERIAL], pdMS_TO_TICKS(50)) == pdTRUE) {
+    if (lock(PTIT_BUS_SERIAL, 50)) {
         Serial.print(msg);
-        xSemaphoreGive(_busMutex[PTIT_BUS_SERIAL]);
+        unlock(PTIT_BUS_SERIAL);
     } else {
         Serial.print(msg);
     }
 }
 
 void PTIT_Scheduler::println(const String& msg) {
-    if (_busMutex[PTIT_BUS_SERIAL] != NULL &&
-        xSemaphoreTake(_busMutex[PTIT_BUS_SERIAL], pdMS_TO_TICKS(50)) == pdTRUE) {
+    if (lock(PTIT_BUS_SERIAL, 50)) {
         Serial.println(msg);
-        xSemaphoreGive(_busMutex[PTIT_BUS_SERIAL]);
+        unlock(PTIT_BUS_SERIAL);
     } else {
         Serial.println(msg);
     }
@@ -123,8 +117,12 @@ void PTIT_Scheduler::println(const String& msg) {
 // TIỆN ÍCH: Lock/Unlock bus tài nguyên chia sẻ
 // ============================================================================
 bool PTIT_Scheduler::lock(uint8_t bus, uint32_t timeoutMs) {
-    if (bus >= PTIT_NUM_BUSES || _busMutex[bus] == NULL) return false;
-    return xSemaphoreTake(_busMutex[bus], pdMS_TO_TICKS(timeoutMs)) == pdTRUE;
+    if (bus >= PTIT_NUM_BUSES) return false;
+    if (_busMutex[bus] == NULL) {
+        _busMutex[bus] = xSemaphoreCreateMutex();
+        if (_busMutex[bus] == NULL) return false;
+    }
+    return (xSemaphoreTake(_busMutex[bus], pdMS_TO_TICKS(timeoutMs)) == pdTRUE);
 }
 
 void PTIT_Scheduler::unlock(uint8_t bus) {

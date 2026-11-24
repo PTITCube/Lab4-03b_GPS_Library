@@ -1,9 +1,13 @@
-#ifndef GPS_H
-#define GPS_H
+#ifndef MUX_GPS_H
+#define MUX_GPS_H
 
 #include <Arduino.h>
 #include <TinyGPS++.h>
 
+/**
+ * @class PTIT_GPS
+ * @brief Quản lý định vị GPS qua MUX trên bus UART2.
+ */
 class PTIT_GPS {
 public:
     PTIT_GPS();
@@ -56,4 +60,4 @@ private:
     uint8_t bufferIndex;
 };
 
-#endif
+#endif // MUX_GPS_H

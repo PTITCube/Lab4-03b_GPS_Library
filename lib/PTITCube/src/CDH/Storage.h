@@ -1,8 +1,14 @@
-#ifndef STORAGE_H
-#define STORAGE_H
+#ifndef CDH_STORAGE_H
+#define CDH_STORAGE_H
 
 #include <Arduino.h>
 
+/**
+ * @class PTIT_Storage
+ * @brief Phân hệ Lưu trữ MicroSD thuộc C&DH.
+ * 
+ * Hỗ trợ ghi log dữ liệu bay, quản lý file/thư mục và các lệnh thao tác shell dạng Linux.
+ */
 class PTIT_Storage {
 public:
     void init();
@@ -58,22 +64,6 @@ public:
     /**
      * Xử lý lệnh file/thư mục kiểu Linux.
      * Trả về chuỗi kết quả để gửi lại trạm mặt đất.
-     *
-     * Lệnh hỗ trợ:
-     *   pwd                      — In đường dẫn hiện tại
-     *   cd <path>                — Đổi thư mục hiện tại (hỗ trợ .., /, đường dẫn tương đối)
-     *   ls [path]                — Liệt kê file và thư mục
-     *   cat <path>               — Xem nội dung file văn bản
-     *   touch <path>             — Tạo file mới rỗng
-     *   echo <text> [> file]     — Ghi/ghi thêm nội dung vào file
-     *   mkdir <path>             — Tạo thư mục
-     *   rmdir <path>             — Xóa thư mục rỗng
-     *   rm <path>                — Xóa file
-     *   df                       — Xem dung lượng thẻ nhớ
-     *   help                     — Xem danh sách lệnh trợ giúp
-     *
-     * @param cmd Lệnh đầy đủ (VD: "ls /logs", "cat /datalog.txt")
-     * @return Chuỗi kết quả. Rỗng nếu lệnh không được nhận diện.
      */
     String handleCommand(const String& cmd);
 
@@ -83,4 +73,4 @@ private:
     String resolvePath(const String& path); // Chuyển đổi đường dẫn tương đối thành tuyệt đối
 };
 
-#endif
+#endif // CDH_STORAGE_H

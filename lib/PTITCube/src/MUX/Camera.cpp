@@ -1,4 +1,5 @@
 #include "Camera.h"
+#include "MUX.h"
 #include "../EPS/EPS.h"
 #include <SD.h>
 #include <SPI.h>
@@ -8,11 +9,6 @@ constexpr uint8_t SD_CS_PIN = 13;
 constexpr uint8_t SD_SCK_PIN = 18;
 constexpr uint8_t SD_MISO_PIN = 19;
 constexpr uint8_t SD_MOSI_PIN = 23;
-
-// Baudrate giao tiếp với ESP32-CAM (UART2 của CAM ở 115200)
-constexpr uint32_t CAM_BAUD = 115200;
-// Baudrate giao tiếp với GPS (9600)
-constexpr uint32_t GPS_BAUD = 9600;
 }
 
 PTIT_Camera::PTIT_Camera() : gpsSelectPin(12), camSelectPin(14), sdReady(false) {
@@ -33,51 +29,19 @@ bool PTIT_Camera::initializeSd() {
 }
 
 bool PTIT_Camera::init(uint8_t gpsSelectPin, uint8_t camSelectPin) {
-    PTIT_EPS::setBuckState(true);
-
     this->gpsSelectPin = gpsSelectPin;
     this->camSelectPin = camSelectPin;
 
-    if (gpsSelectPin != 255 && camSelectPin != 255) {
-        pinMode(this->gpsSelectPin, OUTPUT);
-        pinMode(this->camSelectPin, OUTPUT);
-        
-        // Nguyên tắc Break-Before-Make: Tắt cả hai kênh trước
-        digitalWrite(this->camSelectPin, LOW);
-        digitalWrite(this->gpsSelectPin, LOW);
-        delayMicroseconds(50);
-        
-        // Mặc định an toàn: Trả quyền ưu tiên bus UART2 cho GPS
-        digitalWrite(this->gpsSelectPin, HIGH);
-    }
-
-    // Mặc định khởi động cổng UART2 ở baudrate GPS (9600)
-    Serial2.begin(GPS_BAUD, SERIAL_8N1, 16, 17);
-
+    PTIT_MUX::init(gpsSelectPin, camSelectPin);
     return initializeSd();
 }
 
 void PTIT_Camera::selectGPS() {
-    if (gpsSelectPin != 255 && camSelectPin != 255) {
-        // Break-Before-Make: TẮT Camera trước
-        digitalWrite(camSelectPin, LOW);
-        delayMicroseconds(50);
-        // BẬT GPS sau (chống chập 2 chân TX trên 74HC4066)
-        digitalWrite(gpsSelectPin, HIGH);
-        Serial2.begin(GPS_BAUD, SERIAL_8N1, 16, 17);
-    }
+    PTIT_MUX::selectGPS();
 }
 
 void PTIT_Camera::selectCamera() {
-    if (gpsSelectPin != 255 && camSelectPin != 255) {
-        // Break-Before-Make: TẮT GPS trước
-        digitalWrite(gpsSelectPin, LOW);
-        delayMicroseconds(50);
-        // BẬT Camera sau
-        digitalWrite(camSelectPin, HIGH);
-        Serial2.begin(CAM_BAUD, SERIAL_8N1, 16, 17);
-        delay(100);
-    }
+    PTIT_MUX::selectCamera();
 }
 
 bool PTIT_Camera::isReady() const {

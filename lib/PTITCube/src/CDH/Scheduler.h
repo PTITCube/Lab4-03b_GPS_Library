@@ -1,7 +1,11 @@
-#ifndef SCHEDULER_H
-#define SCHEDULER_H
+#ifndef CDH_SCHEDULER_H
+#define CDH_SCHEDULER_H
 
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
+#include "WDT.h"
 
 // ===== Định danh Bus cho lock/unlock tài nguyên chia sẻ =====
 #define PTIT_BUS_I2C    0
@@ -14,27 +18,12 @@
 #define PTIT_MAX_TASKS  8
 
 /**
- * PTIT_Scheduler — Bộ lập lịch FreeRTOS cho CubeSat.
+ * @class PTIT_Scheduler
+ * @brief Bộ lập lịch FreeRTOS cho CubeSat thuộc phân hệ C&DH.
  *
  * Giấu toàn bộ logic RTOS (tạo task, mutex, watchdog) đằng sau API đơn giản.
  * Người dùng viết logic nghiệp vụ trong các hàm void thông thường,
  * rồi đăng ký chúng bằng addTask().
- *
- * Ví dụ:
- *   PTIT_Scheduler scheduler;
- *
- *   void sensorLoop() { sensor.update(); }
- *   void gpsLoop()    { gps.update(); }
- *
- *   void setup() {
- *       sensor.init();
- *       gps.init();
- *
- *       scheduler.addTask("Sensor", sensorLoop, 200);
- *       scheduler.addTask("GPS",    gpsLoop,    10);
- *       scheduler.enableWatchdog(30);
- *       scheduler.start();
- *   }
  */
 class PTIT_Scheduler {
 public:
@@ -68,7 +57,7 @@ public:
 
     /** In ra Serial có bảo vệ mutex (không bị xen lẫn giữa các task). */
     static void print(const String& msg);
-    static void println(const String& msg);
+    static void println(const String& msg = "");
 
     /**
      * Khóa bus tài nguyên chia sẻ. Dùng khi nhiều task cùng truy cập một bus.
@@ -91,14 +80,14 @@ private:
         uint16_t     stackSize;
     };
 
-    TaskInfo _tasks[PTIT_MAX_TASKS];
-    uint8_t  _taskCount = 0;
-    bool     _wdtEnabled = false;
-    uint32_t _wdtTimeout = 30;
-
-    static bool _wdtActive;
+    static TaskInfo _tasks[PTIT_MAX_TASKS];
+    static uint8_t  _taskCount;
+    static bool     _wdtEnabled;
+    static uint32_t _wdtTimeout;
+    static bool     _wdtActive;
+    static SemaphoreHandle_t _busMutex[PTIT_NUM_BUSES];
 
     static void taskWrapper(void* pvParameters);
 };
 
-#endif
+#endif // CDH_SCHEDULER_H

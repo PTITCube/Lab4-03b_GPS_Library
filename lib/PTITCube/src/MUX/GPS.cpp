@@ -1,4 +1,5 @@
 #include "GPS.h"
+#include "MUX.h"
 #include "../EPS/EPS.h"
 
 PTIT_GPS::PTIT_GPS() : gpsSerial(Serial2), gpsSelectPin(12), camSelectPin(14), bufferIndex(0) {
@@ -6,46 +7,18 @@ PTIT_GPS::PTIT_GPS() : gpsSerial(Serial2), gpsSelectPin(12), camSelectPin(14), b
 }
 
 void PTIT_GPS::init(uint8_t gpsSelectPin, uint8_t camSelectPin) {
-    PTIT_EPS::setBuckState(true);
-
     this->gpsSelectPin = gpsSelectPin;
     this->camSelectPin = camSelectPin;
 
-    if (this->gpsSelectPin != 255 && this->camSelectPin != 255) {
-        pinMode(this->gpsSelectPin, OUTPUT);
-        pinMode(this->camSelectPin, OUTPUT);
-
-        // Break-Before-Make: Tắt CAM trước, ngắt hoàn toàn tiếp điểm 74HC4066
-        digitalWrite(this->camSelectPin, LOW);
-        delayMicroseconds(50);
-        digitalWrite(this->gpsSelectPin, HIGH);
-    }
-
-    gpsSerial.begin(9600, SERIAL_8N1, 16, 17);
+    PTIT_MUX::init(gpsSelectPin, camSelectPin);
 }
 
 void PTIT_GPS::selectGPS() {
-    if (gpsSelectPin != 255 && camSelectPin != 255) {
-        // Break-Before-Make: TẮT CAM trước
-        digitalWrite(camSelectPin, LOW);
-        delayMicroseconds(50);
-        // BẬT GPS sau
-        digitalWrite(gpsSelectPin, HIGH);
-        // Đặt lại baudrate GPS (9600)
-        gpsSerial.begin(9600, SERIAL_8N1, 16, 17);
-    }
+    PTIT_MUX::selectGPS();
 }
 
 void PTIT_GPS::selectCamera() {
-    if (gpsSelectPin != 255 && camSelectPin != 255) {
-        // Break-Before-Make: TẮT GPS trước
-        digitalWrite(gpsSelectPin, LOW);
-        delayMicroseconds(50);
-        // BẬT CAM sau
-        digitalWrite(camSelectPin, HIGH);
-        // Đặt lại baudrate Camera (115200)
-        gpsSerial.begin(115200, SERIAL_8N1, 16, 17);
-    }
+    PTIT_MUX::selectCamera();
 }
 
 void PTIT_GPS::update() {

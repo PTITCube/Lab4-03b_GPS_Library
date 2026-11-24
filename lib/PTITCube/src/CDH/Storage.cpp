@@ -1,6 +1,6 @@
 #include "Storage.h"
 #include "../EPS/EPS.h"
-#include "../Scheduler/Scheduler.h"
+#include "Scheduler.h"
 #include <SD.h>
 #include <SPI.h>
 
@@ -114,8 +114,9 @@ long PTIT_Storage::fileSize(const char *path) {
   if (!sdReady)
     return -1;
   File file = SD.open(path);
-  if (!file)
+  if (!file) {
     return -1;
+  }
   long size = file.size();
   file.close();
   return size;

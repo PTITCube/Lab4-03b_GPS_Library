@@ -6,8 +6,12 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
-#include <esp_task_wdt.h>
 #include <type_traits>
+
+// Bao gồm các module cấu thành phân hệ C&DH
+#include "WDT.h"
+#include "Scheduler.h"
+#include "Storage.h"
 
 using PTIT_ConsoleSerial = std::remove_reference<decltype(Serial)>::type;
 
@@ -15,15 +19,25 @@ using PTIT_ConsoleSerial = std::remove_reference<decltype(Serial)>::type;
  * @class PTIT_CDH
  * @brief Phân hệ Xử lý Dữ liệu và Lệnh điều khiển (Command and Data Handling).
  * 
- * PTIT_CDH kế thừa từ Stream (và Print) để đóng gói toàn bộ các phương thức
- * giao tiếp dữ liệu nối tiếp của Serial (print, println, printf, read, write, available, v.v.),
- * giúp ẩn phần cứng Serial bên dưới và chuẩn hóa giao tiếp trong hệ thống PTITCube.
+ * PTIT_CDH quản lý toàn bộ luồng dữ liệu trung tâm của vệ tinh PTITCube, bao gồm:
+ * - Giao tiếp Serial / Stream kết nối OBC
+ * - Bộ lập lịch đa nhiệm FreeRTOS (Scheduler) & Mutex bảo vệ Bus
+ * - Hệ thống giám sát Watchdog Timer (WDT)
+ * - Lưu trữ thẻ nhớ MicroSD và hệ thống tệp tin (Storage)
+ * - Kết nối WiFi / MQTT Telemetry
  */
 class PTIT_CDH : public Stream {
 private:
     PTIT_ConsoleSerial& _serial;
 
 public:
+    // Submodules trực thuộc C&DH
+    PTIT_Storage   storage;
+    PTIT_Scheduler scheduler;
+    PTIT_WDT       wdt;
+
+    typedef PTIT_Scheduler::TaskFunction TaskFunction;
+
     PTIT_CDH(PTIT_ConsoleSerial& serial = Serial);
 
     // Khởi tạo WiFi, MQTT và vòng lặp phân hệ CDH
@@ -51,16 +65,65 @@ public:
     using Print::write;
 
     // ==========================================
-    // Watchdog Timer (WDT) APIs
+    // FreeRTOS Scheduler APIs (Tích hợp trực tiếp)
     // ==========================================
-    bool wdtInit(uint32_t timeoutSec = 3, bool panic = true);
-    void wdtAdd();
-    void wdtFeed();
-    void wdtReset(); // Alias for wdtFeed
-    bool wasWatchdogReset();
+    void addTask(const char* name, TaskFunction fn, uint32_t intervalMs,
+                 uint8_t core = 1, uint8_t priority = 2, uint16_t stackSize = 4096) {
+        scheduler.addTask(name, fn, intervalMs, core, priority, stackSize);
+    }
+
+    void enableWatchdog(uint32_t timeoutSeconds = 30) {
+        scheduler.enableWatchdog(timeoutSeconds);
+    }
+
+    void start() {
+        scheduler.start();
+    }
+
+    static bool lock(uint8_t bus, uint32_t timeoutMs = 100) {
+        return PTIT_Scheduler::lock(bus, timeoutMs);
+    }
+
+    static void unlock(uint8_t bus) {
+        PTIT_Scheduler::unlock(bus);
+    }
 
     // ==========================================
-    // FreeRTOS Task & Delay Helper APIs
+    // Watchdog Timer (WDT) APIs
+    // ==========================================
+    bool wdtInit(uint32_t timeoutSec = 3, bool panic = true) {
+        return PTIT_WDT::init(timeoutSec, panic);
+    }
+
+    void wdtAdd() {
+        PTIT_WDT::add();
+    }
+
+    void wdtFeed() {
+        PTIT_WDT::feed();
+    }
+
+    void wdtReset() {
+        PTIT_WDT::reset();
+    }
+
+    bool wasWatchdogReset() {
+        return PTIT_WDT::wasReset();
+    }
+
+    // ==========================================
+    // Storage Helper APIs
+    // ==========================================
+    void logData(const char* data) {
+        storage.logData(data);
+    }
+
+    String handleStorageCommand(const String& cmd) {
+        return storage.handleCommand(cmd);
+    }
+
+    // ==========================================
+    // Low-level FreeRTOS Task & Delay Helper APIs
     // ==========================================
     bool createTask(TaskFunction_t taskFn, const char* name, uint32_t stackSize = 2048, 
                     UBaseType_t priority = 1, BaseType_t core = 1, void* param = NULL);
@@ -140,30 +203,13 @@ public:
     }
 };
 
-// ============================================================================
-// Global Helper Functions (gọi trực tiếp không cần đối tượng)
-// ============================================================================
-inline bool wdtInit(uint32_t timeoutSec = 3, bool panic = true) {
-    return (esp_task_wdt_init(timeoutSec, panic) == ESP_OK);
-}
-inline void wdtAdd() {
-    esp_task_wdt_add(NULL);
-}
-inline void wdtFeed() {
-    esp_task_wdt_reset();
-}
-inline void wdtReset() {
-    esp_task_wdt_reset();
-}
-inline bool wasWatchdogReset() {
-    return (esp_reset_reason() == ESP_RST_TASK_WDT);
-}
 inline void taskDelayMs(uint32_t ms) {
     vTaskDelay(pdMS_TO_TICKS(ms));
 }
+
 inline bool createTask(TaskFunction_t taskFn, const char* name, uint32_t stackSize = 2048, 
                        UBaseType_t priority = 1, BaseType_t core = 1, void* param = NULL) {
     return (xTaskCreatePinnedToCore(taskFn, name, stackSize, param, priority, NULL, core) == pdPASS);
 }
 
-#endif
+#endif // CDH_H
