@@ -20,14 +20,7 @@ void setup() {
 void loop() {
     String sentence = gps.readSentence();
     if (sentence.length() > 0) {
-        bool ok = gps.verifyChecksum(sentence.c_str());
-        const char* type = gps.getNMEAType(sentence.c_str());
-
-        cdh.printf("NMEA RAW: %-4s (%s) %s\n",
-                   ok ? "OK" : "FAIL",
-                   type,
-                   sentence.c_str());
-
+        cdh.println(sentence);
         delay(2000);
     }
 }
